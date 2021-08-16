@@ -52,7 +52,7 @@ function construct_reference_models()::Vector{ReferenceModel}
         les_name = "Bomex",
         les_suffix = "aug09",
         # Simulation case specification
-        scm_root = scm_root,
+	scm_root = pwd(),
         scm_name = "Bomex",
         # Define observation window (s)
         t_start = 4.0 * 3600,  # 4hrs
@@ -77,12 +77,12 @@ function run_calibrate()
     #########
     ref_models = construct_reference_models()
 
-    outdir_root = pwd()
+    outdir_root = "/central/groups/esm/zhaoyi/ekp/scm_perfect_model"
     # Define preconditioning and regularization of inverse problem
     perform_PCA = true # Performs PCA on data
     normalize = true  # whether to normalize data by pooled variance
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    model_type::Symbol = :les  # :les or :scm
+    model_type::Symbol = :scm  # :les or :scm
     # Flags for saving output data
     save_eki_data = true  # eki output
     save_ensemble_data = false  # .nc-files from each ensemble run
