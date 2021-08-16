@@ -1,14 +1,14 @@
 {
     "meta": {
         "simname": "Bomex",
-        "uuid": "21",
+        "uuid": "jl_VUZLOi",
         "casename": "Bomex"
     },
     "microphysics": {
         "rain_model": "None"
     },
     "output": {
-        "output_root": "/central/groups/esm/zhaoyi/turbconv/main/"
+        "output_root": "./"
     },
     "thermodynamics": {
         "thermal_variable": "thetal",
@@ -33,10 +33,10 @@
     "turbulence": {
         "Ri_bulk_crit": 0.2,
         "EDMF_PrognosticTKE": {
-            "turbulent_entrainment_factor": 0.015,
+            "calculate_tke": true,
             "entrainment_massflux_div_factor": 0.0,
             "lambda_stab": 0.9,
-            "entrainment_scale": 0.004,
+            "pressure_normalmode_buoy_coeff1": 0.12,
             "surface_area": 0.1,
             "entrainment_smin_tke_coeff": 0.3,
             "constant_area": false,
@@ -62,8 +62,8 @@
             "tke_ed_coeff": 0.14,
             "aspect_ratio": 0.2,
             "max_area": 0.9,
-            "calculate_tke": true,
-            "pressure_normalmode_buoy_coeff1": 0.12
+            "turbulent_entrainment_factor": 0.015,
+            "entrainment_scale": 0.004
         },
         "prandtl_number_0": 0.74,
         "scheme": "EDMF_PrognosticTKE"
