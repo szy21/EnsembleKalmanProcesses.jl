@@ -56,7 +56,7 @@ function construct_reference_models()::Vector{ReferenceModel}
         les_name = "Bomex",
         les_suffix = "aug09",
         # Simulation case specification
-	scm_root = pwd(),
+	scm_root = scm_root,
         scm_name = "Bomex",
         # Define observation window (s)
         t_start = 4.0 * 3600,  # 4hrs
