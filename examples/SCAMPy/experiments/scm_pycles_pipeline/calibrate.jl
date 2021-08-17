@@ -14,7 +14,6 @@
 @everywhere using Distributions
 @everywhere using StatsBase
 @everywhere using LinearAlgebra
-@everywhere using BlockDiagonals
 # Import EKP modules
 @everywhere using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
 @everywhere using EnsembleKalmanProcesses.Observations
@@ -27,12 +26,15 @@ using JLD2
 """ Define parameters and their priors"""
 function construct_priors()
     # Define the parameters that we want to learn
-    param_names = ["entrainment_factor", "detrainment_factor"]
+    params = Dict(
+        # entrainment parameters
+        "entrainment_factor"        => [bounded(0.0, 1.5*0.33)],
+        "detrainment_factor"        => [bounded(0.0, 1.5*0.31)],
+    )
+    param_names = collect(keys(params))
+    constraints = collect(values(params))
     n_param = length(param_names)
 
-    # Prior information: Define transform to unconstrained gaussian space
-    constraints = [ [bounded(0.01, 0.3)],
-                    [bounded(0.01, 1.0)]]
     # All vars are standard Gaussians in unconstrained space
     prior_dist = [Parameterized(Normal(0.0, 1.0))
                     for _ in range(1, n_param, length=n_param) ]
@@ -43,6 +45,7 @@ end
 """ Define reference simulations for loss function"""
 function construct_reference_models()::Vector{ReferenceModel}
     les_root = "/groups/esm/zhaoyi/pycles_clima"
+    scm_root = pwd()  # path to folder with `Output.<scm_name>.00000` files
 
     # Calibrate using reference data and options described by the ReferenceModel struct.
     ref_bomex = ReferenceModel(
@@ -107,6 +110,7 @@ function run_calibrate(return_ekobj=false)
     println("NUMBER OF ENSEMBLE MEMBERS: $N_ens")
     println("NUMBER OF ITERATIONS: $N_iter")
 
+    # parameters are sampled in unconstrained space
     initial_params = construct_initial_ensemble(priors, N_ens, rng_seed=rand(1:1000))
     ekobj = EnsembleKalmanProcess(initial_params, ref_stats.y, ref_stats.Γ, algo )
 
@@ -118,7 +122,7 @@ function run_calibrate(return_ekobj=false)
     # Create output dir
     algo_type = typeof(algo) == Sampler{Float64} ? "eks" : "eki"
     n_param = length(priors.names)
-    outdir_path = joinpath(outdir_root, "results_$(algo_type)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$d")
+    outdir_path = joinpath(outdir_root, "results_$(algo_type)_dt$(Δt)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$(d)_$(model_type)")
     println("Name of outdir path for this EKP is: $outdir_path")
     mkpath(outdir_path)
 
@@ -127,10 +131,9 @@ function run_calibrate(return_ekobj=false)
     norm_err_list = []
     g_big_list = []
     for i in 1:N_iter
-        # Note that the parameters are transformed when used as input to TurbulenceConvection.jl
-        params_cons_i = deepcopy(transform_unconstrained_to_constrained(priors, 
-            get_u_final(ekobj)) )
-        params = [row[:] for row in eachrow(params_cons_i')]
+        # Parameters are transformed to constrained space when used as input to TurbulenceConvection.jl
+        params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekobj))
+        params = [c[:] for c in eachcol(params_cons_i)]
         @everywhere params = $params
         array_of_tuples = pmap(g_, params) # Outer dim is params iterator
         (sim_dirs_arr, g_ens_arr, g_ens_arr_pca) = ntuple(l->getindex.(array_of_tuples,l),3) # Outer dim is G̃, G 
