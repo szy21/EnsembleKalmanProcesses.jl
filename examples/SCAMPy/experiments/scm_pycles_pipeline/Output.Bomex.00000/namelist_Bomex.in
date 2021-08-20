@@ -1,7 +1,7 @@
 {
     "meta": {
         "simname": "Bomex",
-        "uuid": "jl_VUZLOi",
+        "uuid": "jl_WzukML",
         "casename": "Bomex"
     },
     "microphysics": {
@@ -49,8 +49,10 @@
             "mixing_length": "sbtd_eq",
             "entrainment_sigma": 10.0,
             "tke_diss_coeff": 0.22,
+            "Prandtl_number_scale": 4.076923076923077,
             "pressure_closure_drag": "normalmode",
             "updraft_mixing_frac": 0.25,
+            "min_upd_velocity": 0.001,
             "min_updraft_top": 500.0,
             "pressure_normalmode_buoy_coeff2": 0.0,
             "pressure_normalmode_adv_coeff": 0.1,

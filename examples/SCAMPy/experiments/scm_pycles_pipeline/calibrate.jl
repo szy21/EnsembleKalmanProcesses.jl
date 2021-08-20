@@ -28,8 +28,7 @@ function construct_priors()
     # Define the parameters that we want to learn
     params = Dict(
         # entrainment parameters
-        "entrainment_factor"        => [bounded(0.0, 1.5*0.33)],
-        "detrainment_factor"        => [bounded(0.0, 1.5*0.31)],
+        "tau_acnv"        => [bounded(1e3, 2e4)],
     )
     param_names = collect(keys(params))
     constraints = collect(values(params))
@@ -53,11 +52,11 @@ function construct_reference_models()::Vector{ReferenceModel}
         y_names = ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
         # Reference data specification
         les_root = les_root,
-        les_name = "Bomex",
-        les_suffix = "aug09",
+        les_name = "Rico",
+        les_suffix = "aug16",
         # Simulation case specification
 	scm_root = scm_root,
-        scm_name = "Bomex",
+        scm_name = "Rico",
         # Define observation window (s)
         t_start = 4.0 * 3600,  # 4hrs
         t_end = 24.0 * 3600,  # 6hrs
