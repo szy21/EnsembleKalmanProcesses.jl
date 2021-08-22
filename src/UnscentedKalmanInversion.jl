@@ -10,6 +10,8 @@ mutable struct  Unscented{FT<:AbstractFloat, IT<:Int} <: Process
     u_mean::Vector{Array{FT, 1}}
     "a vector of arrays of size (N_parameters x N_parameters) containing the covariance of the parameters (in each uki iteration a new array of cov is added)"
     uu_cov::Vector{Array{FT, 2}}
+    "prior"
+    prior_cov::Union{Array{FT, 2}, Nothing}
     "a vector of arrays of size N_y containing the predicted observation (in each uki iteration a new array of predicted observation is added)"
     obs_pred::Vector{Array{FT, 1}}
     "weights in UKI"
@@ -52,6 +54,12 @@ err = FT[]
 # timestep store
 Δt = Array([Δt])
 
+if process.prior_cov !== nothing
+    N_y = length(obs_mean)
+    obs_mean = [obs_mean; process.u_mean[1]]
+    obs_noise_cov = [obs_noise_cov zeros(Float64, N_y, N_u); zeros(Float64, N_u, N_y)  process.prior_cov]
+end
+
 EnsembleKalmanProcess{FT, IT, Unscented}(init_params, obs_mean, obs_noise_cov, N_ens, g, err, Δt, process)
 end
 
@@ -79,6 +87,7 @@ function Unscented(
     N_y::IT,
     α_reg::FT,
     update_freq::IT;
+    prior_cov::Union{Array{FT, 2}, Nothing} = nothing,
     modified_uscented_transform::Bool = true,
     κ::FT = 0.0,
     β::FT = 2.0) where {FT<:AbstractFloat, IT<:Int}
@@ -125,7 +134,7 @@ function Unscented(
     r = u0_mean
     iter = 0
 
-    Unscented(u_mean, uu_cov,  obs_pred, c_weights, mean_weights, cov_weights, Σ_ω, Σ_ν_scale, α_reg, r, update_freq, iter)
+    Unscented(u_mean, uu_cov,  prior_cov, obs_pred, c_weights, mean_weights, cov_weights, Σ_ω, Σ_ν_scale, α_reg, r, update_freq, iter)
     
     
 end
@@ -245,6 +254,11 @@ g is the predicted observations  Ny  by N_ens matrix
 """
 function update_ensemble_analysis!(uki::EnsembleKalmanProcess{FT, IT,Unscented}, u_p::Array{FT, 2}, g::Array{FT, 2}) where {FT<:AbstractFloat, IT<:Int}
     
+    if uki.process.prior_cov !== nothing
+        g = [g ; u_p]
+    end
+
+
     obs_mean = uki.obs_mean
     Σ_ν = uki.process.Σ_ν_scale * uki.obs_noise_cov
     
