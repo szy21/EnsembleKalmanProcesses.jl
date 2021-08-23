@@ -94,9 +94,9 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
             append!(y_full, y_)
             push!(Γ_full_vec, y_var_)
         end
+	indep_noise = (0.05^2)I
         # Construct global observational covariance matrix, TSVD
-        indep_noise = 1e-3I
-        Γ = cat(Γ_vec..., dims=(1,2)) + indep_noise
+        Γ = cat(Γ_vec..., dims=(1,2)) .* 0.0 + indep_noise
         @assert isposdef(Γ)
     
         Γ_full = cat(Γ_full_vec..., dims=(1,2)) + indep_noise
@@ -265,14 +265,28 @@ function get_obs(
         m, les_dir(m), les_names, z_scm=z_scm,
     )
 
+    # Get true observables
+    y_highres = get_profile(m, sim_dir, y_names)
+
+
+
     norm_vec = if normalize
         pool_var
     else
         ones(size(pool_var))
     end
 
-    # Get true observables
-    y_highres = get_profile(m, sim_dir, y_names)
+    if normalize
+        # todo try different normalization
+        n_vars = length(pool_var)
+        dim_variable = Integer(length(y_highres)/n_vars)
+        for i in 1:n_vars
+            norm_vec[i] = maximum(abs.(y_highres[dim_variable*(i-1)+1:dim_variable*i]))^2
+        end
+    end
+
+
+    
     # normalize
     y_highres = normalize_profile(y_highres, num_vars(m), norm_vec)
 
