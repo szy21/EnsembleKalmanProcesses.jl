@@ -54,14 +54,10 @@ end
 
 
 
-function make_ekp_obs_plot(ekp_path::ST, param_names::Vector{ST}, extended::Bool, y_names) where ST<:AbstractString
-    n_param = length(param_names)
+function make_ekp_obs_plot(ekp_path::ST, param_names::Vector{ST}, ref_models, iter=nothing) where ST<:AbstractString
 
     # Load data
     data = load(joinpath(ekp_path, "ekp.jld2"))
-
-    
-    n_ext = extended ?  n_param :  0 ;
 
     # todo only support 1 case
     # Observation plot
@@ -70,18 +66,25 @@ function make_ekp_obs_plot(ekp_path::ST, param_names::Vector{ST}, extended::Bool
     pred_obs = mean(data["ekp_g"][end], dims=2)[:]
     n_vars = length(pool_var[1])
 
-    dim_variable = Integer((length(truth_mean) - n_ext)/n_vars)
     # plot parameter evolution
+    n_models = length(ref_models)
+    fig, axs = subplots(ncols=n_vars, nrows=n_models, sharey=true, figsize=(4*n_vars, 15*n_models))
 
-    fig, axs = subplots(ncols=n_vars, sharey=true, figsize=(4*n_vars, 15))
+    y_ind = 1
+    for j = 1:n_models
+        z_scm = get_profile(scm_dir(ref_models[j]), ["z_half"])
+        y_names = ref_models[j].y_names
+        for i = 1:n_vars
+            ax = (n_models == 1 ? axs[i] : axs[j,i])
+            ax.plot(truth_mean[y_ind:y_ind+length(z_scm)-1], z_scm,       label="Ref")
+            ax.plot(pred_obs[y_ind:y_ind+length(z_scm)-1],   z_scm, "--", label="Sim" )
+            ax.set_xlabel(y_names[i])
+            ax.legend()
+            y_ind += length(z_scm)
 
-    y = 0:dim_variable-1
-    for (i, ax) in enumerate(axs)
-        ax.plot(truth_mean[dim_variable*(i-1)+1:dim_variable*i], y, label="Ref")
-        ax.plot(pred_obs[dim_variable*(i-1)+1:dim_variable*i], y, "--", label="Sim" )
-        ax.set_xlabel(y_names[i])
-        ax.legend()
+           
+        end
     end
-    savefig(joinpath(ekp_path, "observations.png"))
+    savefig(joinpath(ekp_path, (isnothing(iter) ? "observations.png" : "observations-$(iter).png") ))
 
 end

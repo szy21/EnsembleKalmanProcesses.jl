@@ -94,7 +94,7 @@ Base.@kwdef struct ReferenceStatistics{FT <: Real}
             append!(y_full, y_)
             push!(Γ_full_vec, y_var_)
         end
-	indep_noise = (0.05^2)I
+	    indep_noise = (0.05^2)I
         # Construct global observational covariance matrix, TSVD
         Γ = cat(Γ_vec..., dims=(1,2)) .* 0.0 + indep_noise
         @assert isposdef(Γ)

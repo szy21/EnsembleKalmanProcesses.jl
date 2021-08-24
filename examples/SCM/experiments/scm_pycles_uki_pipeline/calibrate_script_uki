@@ -9,7 +9,7 @@
 ##SBATCH --mail-type=END
 ##SBATCH --mail-type=FAIL
 #SBATCH -J "ekp_bomex"   # job name
-#SBATCH --reservation=clima
+##SBATCH --reservation=clima
 
 
 

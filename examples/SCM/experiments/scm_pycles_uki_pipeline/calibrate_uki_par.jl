@@ -33,14 +33,14 @@ function construct_priors()
         # "entrainment_factor"                => [bounded(0.0, 1.5)],
         # "detrainment_factor"                => [bounded(0.0, 1.5)],
 
-        "entrainment_factor"                => [bounded(0.0, 3.0*0.13)],
-        "detrainment_factor"                => [bounded(0.0, 3.0*0.51)],
-        "turbulent_entrainment_factor"      => [bounded(0.0, 3.0*0.015)],
-        "entrainment_smin_tke_coeff"        => [bounded(0.0, 3.0*0.3)],
-        "updraft_mixing_frac"               => [bounded(0.0, 3.0*0.25)],
-        "entrainment_sigma"                 => [bounded(0.0, 3.0*10.0)],
-        "sorting_power"                     => [bounded(0.0, 3.0*2.0)],
-        "aspect_ratio"                      => [bounded(0.01*0.2, 3.0*0.2)],
+        "entrainment_factor"                => [bounded(0.0, 2.0*0.13)],
+        "detrainment_factor"                => [bounded(0.0, 2.0*0.51)],
+        "turbulent_entrainment_factor"      => [bounded(0.0, 2.0*0.015)],
+        "entrainment_smin_tke_coeff"        => [bounded(0.0, 2.0*0.3)],
+        "updraft_mixing_frac"               => [bounded(0.0, 2.0*0.25)],
+        "entrainment_sigma"                 => [bounded(0.0, 2.0*10.0)],
+        "sorting_power"                     => [bounded(0.0, 2.0*2.0)],
+        "aspect_ratio"                      => [bounded(0.01*0.2, 2.0*0.2)],
     )
     param_names = collect(keys(params))
     constraints = collect(values(params))
@@ -82,6 +82,26 @@ function construct_reference_models()::Vector{ReferenceModel}
         t_start = 4.0 * 3600,  # 4hrs
         t_end = 24.0 * 3600,  # 6hrs
     )
+
+    # Calibrate using reference data and options described by the ReferenceModel struct.
+    ref_rico = ReferenceModel(
+        # Define variables considered in the loss function
+        # y_names = ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
+        y_names = ["thetal_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
+        
+        # y_names = ["thetal_mean", "qt_mean"],
+        # Reference data specification
+        les_root = les_root,
+        les_name = "Rico",
+        les_suffix = "aug23",
+        # Simulation case specification
+        scm_root = scm_root,
+        scm_name = "Rico",
+        # Define observation window (s)
+        t_start = 4.0 * 3600,  # 4hrs
+        t_end = 24.0 * 3600,  # 6hrs
+    )
+
     # Make vector of reference models
     ref_models::Vector{ReferenceModel} = [ref_bomex]
     @assert all(isdir.([les_dir.(ref_models)... scm_dir.(ref_models)...]))
@@ -107,7 +127,7 @@ function run_calibrate(return_ekobj=false)
     # todo
     normalize = true  # whether to normalize data by pooled variance
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    model_type::Symbol = :scm  # :les or :scm
+    model_type::Symbol = :les  # :les or :scm
     # Flags for saving output data
     save_uki_data = true  # uki output
     save_ensemble_data = false  # .nc-files from each ensemble run
@@ -229,7 +249,7 @@ function run_calibrate(return_ekobj=false)
 
             # make ekp plots
             make_ekp_plots(outdir_path, priors.names;ref_params = ref_params)
-            make_ekp_obs_plot(outdir_path, priors.names, algo.prior_cov !== nothing, ref_models[1].y_names)
+            make_ekp_obs_plot(outdir_path, priors.names, ref_models, i)
         end
 
         

@@ -71,7 +71,7 @@ function construct_reference_models()::Vector{ReferenceModel}
     # Calibrate using reference data and options described by the ReferenceModel struct.
     ref_bomex = ReferenceModel(
         # Define variables considered in the loss function
-        y_names = ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
+        y_names = ["thetal_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
         # Reference data specification
         les_root = les_root,
         les_name = "Bomex",
@@ -83,8 +83,27 @@ function construct_reference_models()::Vector{ReferenceModel}
         t_start = 4.0 * 3600,  # 4hrs
         t_end = 24.0 * 3600,  # 6hrs
     )
+
+    ref_rico = ReferenceModel(
+        # Define variables considered in the loss function
+        # y_names = ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
+        y_names = ["thetal_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
+        
+        # y_names = ["thetal_mean", "qt_mean"],
+        # Reference data specification
+        les_root = les_root,
+        les_name = "Rico",
+        les_suffix = "aug23",
+        # Simulation case specification
+        scm_root = scm_root,
+        scm_name = "Rico",
+        # Define observation window (s)
+        t_start = 4.0 * 3600,  # 4hrs
+        t_end = 24.0 * 3600,  # 6hrs
+    )
+
     # Make vector of reference models
-    ref_models::Vector{ReferenceModel} = [ref_bomex]
+    ref_models::Vector{ReferenceModel} = [ref_bomex, ref_rico]
     @assert all(isdir.([les_dir.(ref_models)... scm_dir.(ref_models)...]))
 
     return ref_models
@@ -108,7 +127,7 @@ function run_calibrate(return_ekobj=false)
     # todo
     normalize = true  # whether to normalize data by pooled variance
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
-    model_type::Symbol = :scm  # :les or :scm
+    model_type::Symbol = :les  # :les or :scm
     # Flags for saving output data
     save_uki_data = true  # uki output
     save_ensemble_data = false  # .nc-files from each ensemble run
@@ -134,7 +153,7 @@ function run_calibrate(return_ekobj=false)
     update_freq = 1
     algo = Unscented(prior_mean, prior_cov, d, α_reg, update_freq; prior_cov = prior_cov)
     N_ens = 2*length(prior_mean) + 1 # number of ensemble members
-    N_iter = 10 # number of EKP iterations.
+    N_iter = 2 # number of EKP iterations.
 
     println("NUMBER OF PARAMETERS: $(length(prior_mean)), ENSEMBLE MEMBERS: $N_ens, OBSERVATIONS $d")
     println("NUMBER OF ITERATIONS: $N_iter")
@@ -222,7 +241,8 @@ function run_calibrate(return_ekobj=false)
             )
 
             # make ekp plots
-            make_ekp_plots(outdir_path, priors.names)
+            make_ekp_plots(outdir_path, priors.names;ref_params = ref_params)
+            make_ekp_obs_plot(outdir_path, priors.names, ref_models)
         end
 
         
