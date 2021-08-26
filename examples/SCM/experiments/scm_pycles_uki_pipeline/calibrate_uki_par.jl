@@ -48,7 +48,7 @@ function construct_priors()
 
     # All vars are standard Gaussians in unconstrained space
     # Initial condition (not necessary the prior)
-    σ0 = 1.0
+    σ0 = 0.1
     prior_dist = [Parameterized(Normal(0.0, σ0))
                     for _ in range(1, n_param, length=n_param) ]
     priors = ParameterDistribution(prior_dist, constraints, param_names)
@@ -103,7 +103,7 @@ function construct_reference_models()::Vector{ReferenceModel}
     )
 
     # Make vector of reference models
-    ref_models::Vector{ReferenceModel} = [ref_bomex]
+    ref_models::Vector{ReferenceModel} = [ref_bomex, ref_rico]
     @assert all(isdir.([les_dir.(ref_models)... scm_dir.(ref_models)...]))
 
     return ref_models
@@ -163,7 +163,7 @@ function run_calibrate(return_ekobj=false)
     #                 uninformative prior and prior
     update_freq = 1
     # prior distribution : prior_cov = nothing (uninformative prior)
-    algo = Unscented(prior_mean, prior_cov, d, α_reg, update_freq; prior_cov = prior_cov)  
+    algo = Unscented(prior_mean, prior_cov, d, α_reg, update_freq; prior_cov = 100*prior_cov) # to make it I  
     N_ens = 2*length(prior_mean) + 1 # number of ensemble members
     N_iter = 20 # number of EKP iterations.
 
