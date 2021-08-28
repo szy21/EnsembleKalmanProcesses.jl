@@ -17,7 +17,7 @@ function make_ekp_plots(ekp_path::ST, param_names::Vector{ST}; ref_params = noth
     ustd = zeros((n_iter, n_param))
     for i in 1:n_iter ustd[i,:] = _ustd[i] end
 
-    # plot parameter evolution
+    # Plot parameter evolution
     fig, axs = subplots(nrows=n_param, sharex=true, figsize=(15, 4*n_param))
     x = 0:n_iter-1
     for (i, ax) in enumerate(axs)
@@ -64,6 +64,9 @@ function make_ekp_obs_plot(ekp_path::ST, param_names::Vector{ST}, ref_models, it
     pool_var = data["pool_var"]
     truth_mean = data["truth_mean"]
     pred_obs = mean(data["ekp_g"][end], dims=2)[:]
+
+    pred_obs_std = sqrt.(diag( cov(data["ekp_g"][end], dims=2) ) )[:]
+
     n_vars = length(pool_var[1])
 
     # plot parameter evolution
@@ -78,11 +81,16 @@ function make_ekp_obs_plot(ekp_path::ST, param_names::Vector{ST}, ref_models, it
             ax = (n_models == 1 ? axs[i] : axs[j,i])
             ax.plot(truth_mean[y_ind:y_ind+length(z_scm)-1], z_scm,       label="Ref")
             ax.plot(pred_obs[y_ind:y_ind+length(z_scm)-1],   z_scm, "--", label="Sim" )
+
+            ax.fill_betweenx(z_scm,  
+                pred_obs[y_ind:y_ind+length(z_scm)-1] .- 2pred_obs_std[y_ind:y_ind+length(z_scm)-1], 
+                pred_obs[y_ind:y_ind+length(z_scm)-1] .+ 2pred_obs_std[y_ind:y_ind+length(z_scm)-1], 
+                alpha=0.5,
+            )
+
             ax.set_xlabel(y_names[i])
             ax.legend()
             y_ind += length(z_scm)
-
-           
         end
     end
     savefig(joinpath(ekp_path, (isnothing(iter) ? "observations.png" : "observations-$(iter).png") ))

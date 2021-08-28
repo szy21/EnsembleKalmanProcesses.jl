@@ -195,8 +195,10 @@ function run_calibrate(return_ekobj=false)
         params = [c[:] for c in eachcol(params_cons_i)]
         @everywhere params = $params
 
-        @info params
+        # @info params
         array_of_tuples = pmap(g_, params) # Outer dim is params iterator
+        
+ 	
         (sim_dirs_arr, g_ens_arr, g_ens_arr_pca) = ntuple(l->getindex.(array_of_tuples,l),3) # Outer dim is G̃, G 
         println(string("\n\nEKP evaluation $i finished. Updating ensemble ...\n"))
         for j in 1:N_ens

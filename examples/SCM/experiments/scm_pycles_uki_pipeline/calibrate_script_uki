@@ -3,7 +3,7 @@
 #Submit this script with: sbatch calibrate_script
 
 #SBATCH --time=06:00:00   # walltime
-#SBATCH --ntasks=17  # number of processor cores (i.e. tasks)
+#SBATCH --ntasks=34  # number of processor cores (i.e. tasks)
 #SBATCH --nodes=1   # number of nodes
 ##SBATCH --mail-type=BEGIN
 ##SBATCH --mail-type=END
@@ -17,4 +17,4 @@ module purge
 module load julia/1.6.0 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
 julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
 
-julia --project -p 17 main_uki.jl
+julia --project -p 34 main_uki.jl
