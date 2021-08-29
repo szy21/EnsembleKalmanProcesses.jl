@@ -93,6 +93,8 @@ function make_ekp_obs_plot(ekp_path::ST, param_names::Vector{ST}, ref_models, it
             y_ind += length(z_scm)
         end
     end
+
+    @info "Iteration $(iter), empirical model error covariance is : ", mean((pred_obs - truth_mean).^2)
     savefig(joinpath(ekp_path, (isnothing(iter) ? "observations.png" : "observations-$(iter).png") ))
 
 end

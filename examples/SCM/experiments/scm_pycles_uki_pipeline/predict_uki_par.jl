@@ -103,13 +103,13 @@ function construct_reference_models()::Vector{ReferenceModel}
     )
 
     # Make vector of reference models
-    ref_models::Vector{ReferenceModel} = [ref_bomex]
+    ref_models::Vector{ReferenceModel} = [ref_bomex, ref_rico]
     @assert all(isdir.([les_dir.(ref_models)... scm_dir.(ref_models)...]))
 
     return ref_models
 end
 
-function run_calibrate(return_ekobj=false)
+function run_predict()
     #########
     #########  Define the parameters and their priors
     #########
@@ -128,24 +128,11 @@ function run_calibrate(return_ekobj=false)
     normalize = true  # whether to normalize data by pooled variance
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
     model_type::Symbol = :les  # :les or :scm
-    # Flags for saving output data
-    save_uki_data = true  # uki output
-    save_ensemble_data = false  # .nc-files from each ensemble run
-
+    
     #########
     #########  Retrieve true LES samples from PyCLES data and transform
     #########
 
-    ref_params = model_type == :scm ? Dict(
-        "entrainment_factor"                => 0.13,
-        "detrainment_factor"                => 0.51,
-        "turbulent_entrainment_factor"      => 0.015,
-        "entrainment_smin_tke_coeff"        => 0.3,
-        "updraft_mixing_frac"               => 0.25,
-        "entrainment_sigma"                 => 10.0,
-        "sorting_power"                     => 2.0,
-        "aspect_ratio"                      => 0.2,
-    ) : nothing
     
     # Compute data covariance
     ref_stats = ReferenceStatistics(ref_models, model_type, perform_PCA, normalize)
@@ -162,14 +149,12 @@ function run_calibrate(return_ekobj=false)
     #             0 : weighted average between posterior covariance matrix with an
     #                 uninformative prior and prior
     update_freq = 1
+
     # prior distribution : prior_cov = nothing (uninformative prior)
-    algo = Unscented(prior_mean, prior_cov, d, α_reg, update_freq; prior_cov = nothing) # 100*prior_cov)  
-    N_ens = 2*length(prior_mean) + 1 # number of ensemble members
+    algo   = Unscented(prior_mean, prior_cov, d, α_reg, update_freq; prior_cov = nothing) # 100*prior_cov)  
+    N_ens  = 2*length(prior_mean) + 1 # number of ensemble members
     N_iter = 20 # number of EKP iterations.
 
-    println("NUMBER OF PARAMETERS: $(length(prior_mean)), ENSEMBLE MEMBERS: $N_ens, OBSERVATIONS $d")
-    println("NUMBER OF ITERATIONS: $N_iter")
-    
     # parameters are sampled in unconstrained space
     ekobj = EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, algo )
 
@@ -181,127 +166,80 @@ function run_calibrate(return_ekobj=false)
     # Create output dir
     algo_type = "uki"
     n_param = length(priors.names)
-    outdir_path = joinpath(outdir_root, "results_$(algo_type)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$(d)_$(model_type)")
-    println("Name of outdir path for this EKP is: $outdir_path")
-    mkpath(outdir_path)
+    ekp_path = joinpath(outdir_root, "results_$(algo_type)_p$(n_param)_e$(N_ens)_i$(N_iter)_d300_$(model_type)")
+    println("Name of outdir path for this EKP is: $ekp_path")
+    mkpath(ekp_path)
 
     # EKP iterations
     g_ens = zeros(N_ens, d)
-    norm_err_list = []
-    g_big_list = []
-    for i in 1:N_iter
-        # Parameters are transformed to constrained space when used as input to TurbulenceConvection.jl
-        params_cons_i = transform_unconstrained_to_constrained(priors, get_u_final(ekobj))
-        params = [c[:] for c in eachcol(params_cons_i)]
-        @everywhere params = $params
+    
+    data = load(joinpath(ekp_path, "ekp.jld2"))
 
-        @info "Start pmap iteration: ", i
-        array_of_tuples = pmap(g_, params) # Outer dim is params iterator
+    ekp_mean = data["ekp_mean"]
+    ekp_cov = data["ekp_cov"]
+    truth_mean = data["truth_mean"]
+    inflation_factor = length(truth_mean)/length(ekp_mean)
 
-        
-        (sim_dirs_arr, g_ens_arr, g_ens_arr_pca) = ntuple(l->getindex.(array_of_tuples,l),3) # Outer dim is G̃, G 
-        println(string("\n\nEKP evaluation $i finished. Updating ensemble ...\n"))
-        for j in 1:N_ens
-            if perform_PCA
-                g_ens[j, :] = g_ens_arr_pca[j]
-            else
-                g_ens[j, :] = g_ens_arr[j]
-            end
+    @info "inflation factor is : ", inflation_factor
+    # x_mean x_cov
+    u_final = construct_sigma_ensemble(algo, ekp_mean[end], ekp_cov[end]*inflation_factor) 
+
+
+    
+    # Parameters are transformed to constrained space when used as input to TurbulenceConvection.jl
+    params_cons = transform_unconstrained_to_constrained(priors, u_final)
+    params = [c[:] for c in eachcol(params_cons)]
+    @everywhere params = $params
+
+    array_of_tuples = pmap(g_, params) # Outer dim is params iterator
+
+    (sim_dirs_arr, g_ens_arr, g_ens_arr_pca) = ntuple(l->getindex.(array_of_tuples,l),3) # Outer dim is G̃, G 
+    for j in 1:N_ens
+        if perform_PCA
+            g_ens[j, :] = g_ens_arr_pca[j]
+        else
+            g_ens[j, :] = g_ens_arr[j]
         end
+    end
 
-        # Get normalized error
-        update_ensemble!(ekobj, Array(g_ens') )
-        println("\nEnsemble updated. Saving results to file...\n")
+    # todo only support 1 case
+    # Observation plot
+    
+    truth_mean = ekobj.obs_mean  
+    pred_obs = mean(g_ens', dims=2)[:]
+    pred_obs_std = sqrt.(diag( cov(g_ens', dims=2) ) )[:]
 
-        # Get normalized error for full dimensionality output
-        push!(norm_err_list, compute_errors(g_ens_arr, ref_stats.y_full))
-        norm_err_arr = hcat(norm_err_list...)' # N_iter, N_ens
-        # Store full dimensionality output
-        push!(g_big_list, g_ens_arr)
-        
-        # Convert to arrays
-        phi_params = Array{Array{Float64,2},1}(transform_unconstrained_to_constrained(priors, get_u(ekobj)))
-        phi_params_arr = zeros(i+1, n_param, N_ens)
-        g_big_arr = zeros(i, N_ens, full_length(ref_stats))
-        for (k,elem) in enumerate(phi_params)
-            phi_params_arr[k,:,:] = elem
-            if k < i + 1
-                g_big_arr[k,:,:] = hcat(g_big_list[k]...)'
-            end
-        end
+    pool_var = ref_stats.norm_vec
+    n_vars = length(pool_var[1])
 
-        if save_uki_data
-            # Save EKP information to JLD2 file
-            save(joinpath(outdir_path, "ekp.jld2"),
-                "ekp_u", transform_unconstrained_to_constrained(priors, get_u(ekobj)),
-                "ekp_g", get_g(ekobj),
-                "truth_mean", ekobj.obs_mean,
-                "truth_cov", ekobj.obs_noise_cov,
-                "ekp_err", ekobj.err,
-                "truth_mean_big", ref_stats.y_full,
-                "truth_cov_big", ref_stats.Γ_full,
-                "P_pca", ref_stats.pca_vec,
-                "pool_var", ref_stats.norm_vec,
-                "g_big", g_big_list,
-                "g_big_arr", g_big_arr,
-                "norm_err", norm_err_list,
-                "norm_err_arr", norm_err_arr,
-                "phi_params", phi_params_arr,
-                "ekp_mean", ekobj.process.u_mean,
-                "ekp_cov", ekobj.process.uu_cov,
+    # plot parameter evolution
+    n_models = length(ref_models)
+    @info "Number of models : ", n_model
+    fig, axs = subplots(ncols=n_vars, nrows=n_models, sharey=true, figsize=(4*n_vars, 15*n_models))
+
+    y_ind = 1
+    for j = 1:n_models
+        z_scm = get_profile(scm_dir(ref_models[j]), ["z_half"])
+        y_names = ref_models[j].y_names
+        for i = 1:n_vars
+            ax = (n_models == 1 ? axs[i] : axs[j,i])
+            ax.plot(truth_mean[y_ind:y_ind+length(z_scm)-1], z_scm,       label="Ref")
+            ax.plot(pred_obs[y_ind:y_ind+length(z_scm)-1],   z_scm, "--", label="Sim")
+
+            ax.fill_betweenx(z_scm,  
+                pred_obs[y_ind:y_ind+length(z_scm)-1] .- 2pred_obs_std[y_ind:y_ind+length(z_scm)-1], 
+                pred_obs[y_ind:y_ind+length(z_scm)-1] .+ 2pred_obs_std[y_ind:y_ind+length(z_scm)-1], 
+                alpha=0.5,
             )
 
-            # make ekp plots
-            make_ekp_plots(outdir_path, priors.names;ref_params = ref_params)
-            make_ekp_obs_plot(outdir_path, priors.names, ref_models, i)
-        end
-
-        
-        if save_ensemble_data
-            uki_iter_path = joinpath(outdir_path, "UKI_iter_$i")
-            mkpath(uki_iter_path)
-            save_full_ensemble_data(uki_iter_path, sim_dirs_arr, scm_names)
+            ax.set_xlabel(y_names[i])
+            ax.legend()
+            y_ind += length(z_scm)
         end
     end
-    # EKP results: Has the ensemble collapsed toward the truth?
-    println("\nEKP ensemble mean at last stage (original space):")
-    println(mean(get_u_final(ekobj), dims=2) )  # Parameters are stored as columns
-    println(transform_unconstrained_to_constrained(priors, mean(get_u_final(ekobj), dims=2) ) ) 
-    # Parameters are stored as columns
-    println( mean( transform_unconstrained_to_constrained(priors, get_u_final(ekobj)), dims=2) ) 
-    
-    println("\nEKP ensemble mean at every stage (original space):")
-    ekp_u = transform_unconstrained_to_constrained(priors, get_u(ekobj))
-    for i in 1:length(ekp_u)
-        println(mean( ekp_u[i], dims=2))   # Parameters are stored as columns
-        println(ekobj.process.uu_cov[i])   # Parameters are stored as columns
-    end
 
+    savefig(joinpath(ekp_path, "observations-Pred.png"))
 
-    if return_ekobj
-        return ekobj, outdir_path
-    end
 end
 
 
-""" Save full EDMF data from every ensemble"""
-function save_full_ensemble_data(save_path, sim_dirs_arr, scm_names)
-    # get a simulation directory `.../Output.SimName.UUID`, and corresponding parameter name
-    for (ens_i, sim_dirs) in enumerate(sim_dirs_arr)  # each ensemble returns a list of simulation directories
-        ens_i_path = joinpath(save_path, "ens_$ens_i")
-        mkpath(ens_i_path)
-        for (scm_name, sim_dir) in zip(scm_names, sim_dirs)
-            # Copy simulation data to output directory
-            dirname = splitpath(sim_dir)[end]
-            @assert dirname[1:7] == "Output."  # sanity check
-            # Stats file
-            tmp_data_path = joinpath(sim_dir, "stats/Stats.$scm_name.nc")
-            save_data_path = joinpath(ens_i_path, "Stats.$scm_name.$ens_i.nc")
-            cp(tmp_data_path, save_data_path)
-            # namefile
-            tmp_namefile_path = namelist_directory(sim_dir, scm_name)
-            save_namefile_path = namelist_directory(ens_i_path, scm_name)
-            cp(tmp_namefile_path, save_namefile_path)
-        end
-    end
-end
