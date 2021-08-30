@@ -48,7 +48,7 @@ namelist_directory(root::S, casename::S) where S<:AbstractString = joinpath(root
 num_vars(m::ReferenceModel) = length(m.y_names)
 
 
-Base.@kwdef struct ReferenceStatistics{FT <: Real}
+Base.@kwdef mutable struct ReferenceStatistics{FT <: Real}
     "Reference data, length: nSim * n_vars * n_zLevels(possibly reduced by PCA)"
     y::Vector{FT} # yt
     "Data covariance matrix, dims: (y,y) (possibly reduced by PCA)"

@@ -35,10 +35,10 @@ function construct_priors()
 
         "entrainment_factor"                => [bounded(0.0, 2.0*0.13)],
         "detrainment_factor"                => [bounded(0.0, 2.0*0.51)],
-        "turbulent_entrainment_factor"      => [bounded(0.0, 2.0*0.015)],
-        "entrainment_smin_tke_coeff"        => [bounded(0.0, 2.0*0.3)],
-        "updraft_mixing_frac"               => [bounded(0.0, 2.0*0.25)],
-        "entrainment_sigma"                 => [bounded(0.0, 2.0*10.0)],
+        # "turbulent_entrainment_factor"      => [bounded(0.0, 2.0*0.015)],
+        # "entrainment_smin_tke_coeff"        => [bounded(0.0, 2.0*0.3)],
+        # "updraft_mixing_frac"               => [bounded(0.0, 2.0*0.25)],
+        # "entrainment_sigma"                 => [bounded(0.0, 2.0*10.0)],
         "sorting_power"                     => [bounded(0.0, 2.0*2.0)],
         "aspect_ratio"                      => [bounded(0.01*0.2, 2.0*0.2)],
     )
@@ -150,6 +150,9 @@ function run_calibrate(return_ekobj=false)
     # Compute data covariance
     ref_stats = ReferenceStatistics(ref_models, model_type, perform_PCA, normalize)
     d = length(ref_stats.y) # Length of data array
+
+    ref_stats.Γ = ref_stats.Γ*0.0 + 0.01541835777377108I 
+
 
     #########
     #########  Calibrate: Ensemble Kalman Inversion

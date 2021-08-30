@@ -9,56 +9,24 @@
 # the included script.
 
 # Import modules to all processes
-@everywhere using Pkg
-@everywhere Pkg.activate("../..")
-@everywhere using Distributions
-@everywhere using StatsBase
-@everywhere using LinearAlgebra
-# Import EKP modules
-@everywhere using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-@everywhere using EnsembleKalmanProcesses.Observations
-@everywhere using EnsembleKalmanProcesses.ParameterDistributionStorage
-@everywhere include(joinpath(@__DIR__, "../../src/helper_funcs.jl"))
+# @everywhere using Pkg
+# @everywhere Pkg.activate("../..")
+# @everywhere using Distributions
+# @everywhere using StatsBase
+# @everywhere using LinearAlgebra
+# # Import EKP modules
+# @everywhere using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
+# @everywhere using EnsembleKalmanProcesses.Observations
+# @everywhere using EnsembleKalmanProcesses.ParameterDistributionStorage
+# @everywhere include(joinpath(@__DIR__, "../../src/helper_funcs.jl"))
 
 
-include(joinpath(@__DIR__, "../../src/ekp_plots.jl"))
-using JLD2
+# include(joinpath(@__DIR__, "../../src/ekp_plots.jl"))
+include(joinpath(@__DIR__, "calibrate_uki_par.jl"))
+# using JLD2
 
 
-""" Define parameters and their priors"""
-function construct_priors()
-    # Define the parameters that we want to learn
-    params = Dict(
-        # entrainment parameters
-        # "entrainment_factor"                => [bounded(0.0, 1.5)],
-        # "detrainment_factor"                => [bounded(0.0, 1.5)],
-
-        "entrainment_factor"                => [bounded(0.0, 2.0*0.13)],
-        "detrainment_factor"                => [bounded(0.0, 2.0*0.51)],
-        "turbulent_entrainment_factor"      => [bounded(0.0, 2.0*0.015)],
-        "entrainment_smin_tke_coeff"        => [bounded(0.0, 2.0*0.3)],
-        "updraft_mixing_frac"               => [bounded(0.0, 2.0*0.25)],
-        "entrainment_sigma"                 => [bounded(0.0, 2.0*10.0)],
-        "sorting_power"                     => [bounded(0.0, 2.0*2.0)],
-        "aspect_ratio"                      => [bounded(0.01*0.2, 2.0*0.2)],
-    )
-    param_names = collect(keys(params))
-    constraints = collect(values(params))
-    n_param = length(param_names)
-
-    # All vars are standard Gaussians in unconstrained space
-    # Initial condition (not necessary the prior)
-    σ0 = 0.1
-    prior_dist = [Parameterized(Normal(0.0, σ0))
-                    for _ in range(1, n_param, length=n_param) ]
-    priors = ParameterDistribution(prior_dist, constraints, param_names)
-    
-    prior_mean = zeros(n_param)
-    prior_cov = Array(Diagonal(zeros(n_param) .+ σ0^2))
-    
-    return priors, prior_mean, prior_cov
-end
-
+# Redefine the reference models for the test
 """ Define reference simulations for loss function"""
 function construct_reference_models()::Vector{ReferenceModel}
     les_root = "/groups/esm/zhaoyi/pycles_clima"
@@ -166,6 +134,7 @@ function run_predict()
     # Create output dir
     algo_type = "uki"
     n_param = length(priors.names)
+    # todo 
     ekp_path = joinpath(outdir_root, "results_$(algo_type)_p$(n_param)_e$(N_ens)_i$(N_iter)_d300_$(model_type)")
     println("Name of outdir path for this EKP is: $ekp_path")
     mkpath(ekp_path)
@@ -174,7 +143,6 @@ function run_predict()
     g_ens = zeros(N_ens, d)
     
     data = load(joinpath(ekp_path, "ekp.jld2"))
-
     ekp_mean = data["ekp_mean"]
     ekp_cov = data["ekp_cov"]
     truth_mean = data["truth_mean"]
