@@ -18,3 +18,5 @@ module load julia/1.6.0 hdf5/1.10.1 netcdf-c/4.6.1 openmpi/4.0.1
 julia --project -e 'using Pkg; Pkg.instantiate(); Pkg.API.precompile()'
 
 julia --project -p 17 calibrate_uki.jl
+julia --project -p 17 uq_uki.jl
+julia --project -p 17 predict_uki.jl

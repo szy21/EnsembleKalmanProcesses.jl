@@ -9,20 +9,8 @@
 # the included script.
 
 # Import modules to all processes
-@everywhere using Pkg
-@everywhere Pkg.activate("../..")
-@everywhere using Distributions
-@everywhere using StatsBase
-@everywhere using LinearAlgebra
-# Import EKP modules
-@everywhere using EnsembleKalmanProcesses.EnsembleKalmanProcessModule
-@everywhere using EnsembleKalmanProcesses.Observations
-@everywhere using EnsembleKalmanProcesses.ParameterDistributionStorage
-@everywhere include(joinpath(@__DIR__, "../../src/helper_funcs.jl"))
+include(joinpath(@__DIR__, "calibrate_uki_par.jl"))
 
-
-include(joinpath(@__DIR__, "../../src/ekp_plots.jl"))
-using JLD2
 
 
 """ Define parameters and their priors"""
@@ -109,7 +97,7 @@ function construct_reference_models()::Vector{ReferenceModel}
     return ref_models
 end
 
-function run_calibrate(return_ekobj=false)
+function run_uq(return_ekobj=false)
     #########
     #########  Define the parameters and their priors
     #########
@@ -151,6 +139,35 @@ function run_calibrate(return_ekobj=false)
     ref_stats = ReferenceStatistics(ref_models, model_type, perform_PCA, normalize)
     d = length(ref_stats.y) # Length of data array
 
+    N_ens = 2*length(prior_mean) + 1 # number of ensemble members
+    N_iter = 20 # number of EKP iterations.
+
+
+    # Create output dir
+    algo_type = "uki"
+    n_param = length(priors.names)
+    outdir_path = joinpath(outdir_root, "results_$(algo_type)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$(d)_$(model_type)")
+    println("Name of outdir path for this EKP is: $outdir_path")
+    mkpath(outdir_path)
+    
+
+    # update initial condition
+    indir_path = outdir_path * "-0"   
+    data = load(joinpath(indir_path, "ekp.jld2"))
+    ekp_mean = data["ekp_mean"]
+    ekp_cov  = data["ekp_cov"]
+    # update initial condition
+    prior_mean, prior_cov = ekp_mean[end], ekp_cov[end]
+    # update observation errro covariance
+    truth_mean = data["truth_mean"]
+    pred_obs = mean(data["ekp_g"][end], dims=2)[:]
+    σe2 = mean((pred_obs - truth_mean).^2)
+    ref_stats.Γ = ref_stats.Γ*0.0 + σe2*I 
+
+    @info "UKI starts with ", prior_mean, prior_cov
+    @info "observation error : ", σe2
+
+
     #########
     #########  Calibrate: Ensemble Kalman Inversion
     #########
@@ -164,8 +181,7 @@ function run_calibrate(return_ekobj=false)
     update_freq = 1
     # prior distribution : prior_cov = nothing (uninformative prior)
     algo = Unscented(prior_mean, prior_cov, d, α_reg, update_freq; prior_cov = nothing) # 100*prior_cov)  
-    N_ens = 2*length(prior_mean) + 1 # number of ensemble members
-    N_iter = 20 # number of EKP iterations.
+
 
     println("NUMBER OF PARAMETERS: $(length(prior_mean)), ENSEMBLE MEMBERS: $N_ens, OBSERVATIONS $d")
     println("NUMBER OF ITERATIONS: $N_iter")
@@ -178,12 +194,8 @@ function run_calibrate(return_ekobj=false)
         x, $priors.names, $ref_models, $ref_stats,
     )
 
-    # Create output dir
-    algo_type = "uki"
-    n_param = length(priors.names)
-    outdir_path = joinpath(outdir_root, "results_$(algo_type)_p$(n_param)_e$(N_ens)_i$(N_iter)_d$(d)_$(model_type)-0")
-    println("Name of outdir path for this EKP is: $outdir_path")
-    mkpath(outdir_path)
+
+    
 
     # EKP iterations
     g_ens = zeros(N_ens, d)
