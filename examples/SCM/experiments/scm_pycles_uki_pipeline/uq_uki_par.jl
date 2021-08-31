@@ -11,57 +11,6 @@
 # Import modules to all processes
 include(joinpath(@__DIR__, "calibrate_uki_par.jl"))
 
-
-""" Define reference simulations for loss function"""
-function construct_reference_models()::Vector{ReferenceModel}
-    les_root = "/groups/esm/zhaoyi/pycles_clima"
-    scm_root = pwd()  # path to folder with `Output.<scm_name>.00000` files
-
-    # Calibrate using reference data and options described by the ReferenceModel struct.
-    ref_bomex = ReferenceModel(
-        # Define variables considered in the loss function
-        y_names = ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
-        # y_names = ["thetal_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
-        
-        # y_names = ["thetal_mean", "qt_mean"],
-        # Reference data specification
-        les_root = les_root,
-        les_name = "Bomex",
-        les_suffix = "aug09",
-        # Simulation case specification
-        scm_root = scm_root,
-        scm_name = "Bomex",
-        # Define observation window (s)
-        t_start = 4.0 * 3600,  # 4hrs
-        t_end = 24.0 * 3600,  # 6hrs
-    )
-
-    # Calibrate using reference data and options described by the ReferenceModel struct.
-    ref_rico = ReferenceModel(
-        # Define variables considered in the loss function
-        # y_names = ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
-        y_names = ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
-        
-        # y_names = ["thetal_mean", "qt_mean"],
-        # Reference data specification
-        les_root = les_root,
-        les_name = "Rico",
-        les_suffix = "aug23",
-        # Simulation case specification
-        scm_root = scm_root,
-        scm_name = "Rico",
-        # Define observation window (s)
-        t_start = 4.0 * 3600,  # 4hrs
-        t_end = 24.0 * 3600,  # 6hrs
-    )
-
-    # Make vector of reference models
-    ref_models::Vector{ReferenceModel} = [ref_bomex]
-    @assert all(isdir.([les_dir.(ref_models)... scm_dir.(ref_models)...]))
-
-    return ref_models
-end
-
 function run_uq(return_ekobj=false)
     #########
     #########  Define the parameters and their priors

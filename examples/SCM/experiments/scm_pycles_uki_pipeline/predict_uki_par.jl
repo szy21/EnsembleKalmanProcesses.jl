@@ -182,7 +182,7 @@ function run_predict()
 
     # plot parameter evolution
     n_models = length(ref_models)
-    @info "Number of models : ", n_model
+    @info "Number of models : ", n_models
     fig, axs = subplots(ncols=n_vars, nrows=n_models, sharey=true, figsize=(4*n_vars, 15*n_models))
 
     y_ind = 1
