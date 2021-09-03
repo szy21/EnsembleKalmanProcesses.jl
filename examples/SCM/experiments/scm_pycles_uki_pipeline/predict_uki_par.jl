@@ -93,7 +93,7 @@ function run_predict()
     # Define preconditioning and regularization of inverse problem
     perform_PCA = false # Performs PCA on data
     # todo
-    normalize = true  # whether to normalize data by pooled variance
+    normalize = false # whether to normalize data by pooled variance
     # Flag to indicate whether reference data is from a perfect model (i.e. SCM instead of LES)
     model_type::Symbol = :les  # :les or :scm
     
@@ -135,7 +135,7 @@ function run_predict()
     algo_type = "uki"
     n_param = length(priors.names)
     # todo 
-    ekp_path = joinpath(outdir_root, "results_$(algo_type)_p$(n_param)_e$(N_ens)_i$(N_iter)_d300_$(model_type)")
+    ekp_path = joinpath(outdir_root, "results_$(algo_type)_p$(n_param)_e$(N_ens)_i$(N_iter)_d240_$(model_type)")
     println("Name of outdir path for this EKP is: $ekp_path")
     mkpath(ekp_path)
 
@@ -174,8 +174,13 @@ function run_predict()
     # Observation plot
     
     truth_mean = ekobj.obs_mean  
-    pred_obs = mean(g_ens', dims=2)[:]
-    pred_obs_std = sqrt.(diag( cov(g_ens', dims=2) ) )[:]
+
+    pred_obs = construct_mean(ekobj, Array(g_ens'))  #mean(g_ens', dims=2)[:]
+    pred_cov = construct_cov(ekobj, Array(g_ens'), pred_obs)
+    pred_obs_std = sqrt.(diag( pred_cov ) )[:]
+
+    # pred_obs = mean(g_ens', dims=2)[:]
+    # pred_obs_std = sqrt.(diag( cov(g_ens', dims=2) ) )[:]
 
     pool_var = ref_stats.norm_vec
     n_vars = length(pool_var[1])

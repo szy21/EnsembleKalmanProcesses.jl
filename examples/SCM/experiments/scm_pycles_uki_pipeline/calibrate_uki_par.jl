@@ -35,11 +35,11 @@ function construct_priors()
 
         "entrainment_factor"                => [bounded(0.0, 2.0*0.13)],
         "detrainment_factor"                => [bounded(0.0, 2.0*0.51)],
-        "turbulent_entrainment_factor"      => [bounded(0.0, 2.0*0.015)],
+        # "turbulent_entrainment_factor"      => [bounded(0.0, 2.0*0.015)],
         "entrainment_smin_tke_coeff"        => [bounded(0.0, 2.0*0.3)],
-        # "updraft_mixing_frac"               => [bounded(0.0, 2.0*0.25)],
+        "updraft_mixing_frac"               => [bounded(0.0, 2.0*0.25)],
         # "entrainment_sigma"                 => [bounded(0.0, 2.0*10.0)],
-        "sorting_power"                     => [bounded(0.0, 2.0*2.0)],
+        # "sorting_power"                     => [bounded(0.0, 2.0*2.0)],
         "aspect_ratio"                      => [bounded(0.01*0.2, 2.0*0.2)],
     )
     param_names = collect(keys(params))
@@ -67,7 +67,9 @@ function construct_reference_models()::Vector{ReferenceModel}
     # Calibrate using reference data and options described by the ReferenceModel struct.
     ref_bomex = ReferenceModel(
         # Define variables considered in the loss function
-        y_names = ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
+        # y_names = ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
+
+        y_names = ["ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
         # y_names = ["thetal_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
         
         # y_names = ["thetal_mean", "qt_mean"],
@@ -87,7 +89,7 @@ function construct_reference_models()::Vector{ReferenceModel}
     ref_rico = ReferenceModel(
         # Define variables considered in the loss function
         # y_names = ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
-        y_names = ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
+        y_names = ["ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
         
         # y_names = ["thetal_mean", "qt_mean"],
         # Reference data specification
@@ -252,8 +254,8 @@ function run_calibrate(return_ekobj=false)
             )
 
             # make ekp plots
-            make_ekp_plots(outdir_path, priors.names;ref_params = ref_params)
-            make_ekp_obs_plot(outdir_path, priors.names, ref_models, i)
+            make_ekp_plots(outdir_path, priors.names, ekobj;ref_params = ref_params)
+            make_ekp_obs_plot(outdir_path, priors.names, ref_models, ekobj, i)
         end
 
         

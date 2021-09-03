@@ -74,12 +74,7 @@ function run_uq(return_ekobj=false)
     prior_mean, prior_cov = ekp_mean[end], ekp_cov[end]
     # update observation errro covariance
     truth_mean = data["truth_mean"]
-    pred_obs = mean(data["ekp_g"][end], dims=2)[:]
-    σe2 = mean((pred_obs - truth_mean).^2)
-    ref_stats.Γ = ref_stats.Γ*0.0 + σe2*I 
-
-    @info "UKI starts with ", prior_mean, prior_cov
-    @info "observation error : ", σe2
+    
 
 
     #########
@@ -95,13 +90,39 @@ function run_uq(return_ekobj=false)
     update_freq = 1
     # prior distribution : prior_cov = nothing (uninformative prior)
     algo = Unscented(prior_mean, prior_cov, d, α_reg, update_freq; prior_cov = nothing) # 100*prior_cov)  
-
-
     println("NUMBER OF PARAMETERS: $(length(prior_mean)), ENSEMBLE MEMBERS: $N_ens, OBSERVATIONS $d")
     println("NUMBER OF ITERATIONS: $N_iter")
     
     # parameters are sampled in unconstrained space
     ekobj = EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, algo )
+
+
+    # pred_obs = mean(data["ekp_g"][end], dims=2)[:]
+    pred_obs = construct_mean(ekobj, data["ekp_g"][end])
+    pool_var = data["pool_var"]
+    n_vars = length(pool_var[1])
+    n_models = length(ref_models)
+
+    D_σe2 = zeros(length(truth_mean))
+    y_ind = 1
+    for j = 1:n_models
+        z_scm = get_profile(scm_dir(ref_models[j]), ["z_half"])
+        for i = 1:n_vars
+            D_σe2[y_ind:y_ind+length(z_scm)-1] .= mean((pred_obs[y_ind:y_ind+length(z_scm)-1] - truth_mean[y_ind:y_ind+length(z_scm)-1]).^2)
+            y_ind += length(z_scm)
+        end
+    end
+    ref_stats.Γ = ref_stats.Γ*0.0 + Array(Diagonal(D_σe2)) 
+
+    @info "UKI starts with ", prior_mean, prior_cov
+    @info "observation error : ", D_σe2
+
+    # update ref_stats.Γ
+    ekobj = EnsembleKalmanProcess(ref_stats.y, ref_stats.Γ, algo )
+
+
+    ############################################################################################
+
 
     # Define caller function
     @everywhere g_(x::Vector{FT}) where FT<:Real = run_SCM(
@@ -178,8 +199,8 @@ function run_uq(return_ekobj=false)
             )
 
             # make ekp plots
-            make_ekp_plots(outdir_path, priors.names;ref_params = ref_params)
-            make_ekp_obs_plot(outdir_path, priors.names, ref_models, i)
+            make_ekp_plots(outdir_path, priors.names, ekobj;ref_params = ref_params)
+            make_ekp_obs_plot(outdir_path, priors.names, ref_models, ekobj, i)
         end
 
         
