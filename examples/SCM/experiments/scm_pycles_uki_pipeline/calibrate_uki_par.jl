@@ -68,8 +68,9 @@ function construct_reference_models()::Vector{ReferenceModel}
     ref_bomex = ReferenceModel(
         # Define variables considered in the loss function
         # y_names = ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
+        y_names = ["thetal_mean",  "qt_mean", "total_flux_h", "total_flux_qt"],
 
-        y_names = ["ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
+        # y_names = ["ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
         # y_names = ["thetal_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
         
         # y_names = ["thetal_mean", "qt_mean"],
@@ -89,7 +90,7 @@ function construct_reference_models()::Vector{ReferenceModel}
     ref_rico = ReferenceModel(
         # Define variables considered in the loss function
         # y_names = ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
-        y_names = ["ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
+        y_names = ["thetal_mean",  "qt_mean", "total_flux_h", "total_flux_qt"],
         
         # y_names = ["thetal_mean", "qt_mean"],
         # Reference data specification
@@ -99,6 +100,25 @@ function construct_reference_models()::Vector{ReferenceModel}
         # Simulation case specification
         scm_root = scm_root,
         scm_name = "Rico",
+        # Define observation window (s)
+        t_start = 4.0 * 3600,  # 4hrs
+        t_end = 24.0 * 3600,  # 6hrs
+    )
+
+    ref_dycoms = ReferenceModel(
+        # /central/groups/esm/zhaoyi/pycles_clima/Output.DYCOMS_RF01.aug30
+        # Define variables considered in the loss function
+        # y_names = ["thetal_mean", "ql_mean", "qt_mean", "total_flux_h", "total_flux_qt"],
+        y_names = ["thetal_mean", "qt_mean"],
+        
+        # y_names = ["thetal_mean", "qt_mean"],
+        # Reference data specification
+        les_root = les_root,
+        les_name = "DYCOMS_RF01",
+        les_suffix = "aug30",
+        # Simulation case specification
+        scm_root = scm_root,
+        scm_name = "DYCOMS_RF01",
         # Define observation window (s)
         t_start = 4.0 * 3600,  # 4hrs
         t_end = 24.0 * 3600,  # 6hrs
