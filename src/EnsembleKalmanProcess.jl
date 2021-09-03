@@ -15,7 +15,7 @@ export get_u, get_g
 export get_u_prior, get_u_final, get_u_mean_final, get_g_final, get_N_iterations, get_error
 export compute_error!
 export update_ensemble!
-export construct_sigma_ensemble
+export construct_sigma_ensemble, construct_mean, construct_cov
 
 abstract type Process end
 #specific Processes and their exports are included after the general definitions
