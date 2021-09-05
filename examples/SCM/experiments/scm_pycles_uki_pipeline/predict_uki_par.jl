@@ -149,9 +149,15 @@ function run_predict()
     inflation_factor = length(truth_mean)/length(ekp_mean)
 
     @info "inflation factor is : ", inflation_factor
-    # x_mean x_cov
-    u_final = construct_sigma_ensemble(algo, ekp_mean[end], ekp_cov[end]*inflation_factor) 
-
+    
+    UKI_or_not = true
+    
+    if UKI_or_not
+        u_final = construct_sigma_ensemble(algo, ekp_mean[end], ekp_cov[end]*inflation_factor) 
+    else
+        u_final =    rand(MvNormal(ekp_mean[end], (ekp_cov[end]+ekp_cov[end]')/2*inflation_factor), N_ens)
+        
+    end
 
     
     # Parameters are transformed to constrained space when used as input to TurbulenceConvection.jl
@@ -175,12 +181,17 @@ function run_predict()
     
     truth_mean = ekobj.obs_mean  
 
-    pred_obs = construct_mean(ekobj, Array(g_ens'))  #mean(g_ens', dims=2)[:]
-    pred_cov = construct_cov(ekobj, Array(g_ens'), pred_obs)
-    pred_obs_std = sqrt.(diag( pred_cov ) )[:]
+    if UKI_or_not
+        pred_obs = construct_mean(ekobj, Array(g_ens'))  #mean(g_ens', dims=2)[:]
+        pred_cov = construct_cov(ekobj, Array(g_ens'), pred_obs)
+        pred_obs_std = sqrt.(diag( pred_cov ) )[:]
+    else
 
-    # pred_obs = mean(g_ens', dims=2)[:]
-    # pred_obs_std = sqrt.(diag( cov(g_ens', dims=2) ) )[:]
+        pred_obs = mean(g_ens', dims=2)[:]
+        pred_obs_std = sqrt.(diag( cov(g_ens', dims=2) ) )[:]
+
+    end
+    
 
     pool_var = ref_stats.norm_vec
     n_vars = length(pool_var[1])
